@@ -1,0 +1,695 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8">
+        <title>SaltVirt</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <meta name="description" content="">
+        <meta name="author" content="Tor Hveem">
+
+        <!-- Le styles -->
+        <link href="/static/bootstrap/css/bootstrap.css" rel="stylesheet">
+        <link href="/static/fa/css/font-awesome.css" rel="stylesheet">
+        <style type="text/css">
+            body {
+                padding-bottom: 40px;
+                font-family: 'Tahoma', sans-serif;
+
+            }
+            #cuntent {
+                background: whitesmoke;
+                padding: 10px;
+                border-radius: 3px;
+            }
+            #content .navbar-inner {
+                padding-left: 15px;
+                padding-top: 15px;
+
+            }
+            .sidebar-nav {
+                padding: 9px 0;
+                padding-top: 0;
+            }
+            .sidebar-nav.well {
+                border: 0;
+            }
+            .sidebar-nav.box-header {
+                padding-left: 9px;
+            }
+            .shutdown, .icon-stop, .icon-off {
+                color: #9d261d; 
+            }
+            .running, .icon-play {
+                color: #5bb75b;
+            }
+            #host-list-container {
+                padding-top: 15px;
+            }
+            iframe {
+                border: 0;
+            }
+        </style>
+        <link href="/static/bootstrap/css/bootstrap-responsive.css" rel="stylesheet">
+        <link href="/static/screen.css" rel="stylesheet">
+
+        <!-- HTML5 shim, for IE6-8 support of HTML5 elements -->
+        <!--[if lt IE 9]>
+        <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+        <![endif]-->
+
+    </head>
+
+    <body>
+<!--
+        <div class="navbar">
+            <div class="navbar-inner">
+                <div class="container-fluid">
+                    <a class="btn btn-navbar" data-toggle="collapse" data-target=".nav-collapse">
+                        <span class="icon-bar"></span>
+                        <span class="icon-bar"></span>
+                        <span class="icon-bar"></span>
+                    </a>
+                    <a class="brand" href="#">SaltVirt</a>
+                    <div class="nav-collapse collapse">
+                        <p class="navbar-text pull-right">
+                        Logged in as <a href="#" class="navbar-link">Superduperuser</a>
+                        </p>
+                        <ul class="nav">
+                            <li class="active"><a href="#">Home</a></li>
+                            <li class=""><a href='#' class="overview-link">Overview</a></li>
+                        </ul>
+                    </div><!--/.nav-collapse -->
+                </div>
+            </div>
+        </div>
+    -->
+        <div id="" class="container-fluid">
+            <div class="row-fluid">
+                <div class="span2">
+                    <div class="well sidebar-nav">
+                        <div class="box-header"><h2><a href='#' class="overview-link"><i class="icon-dashboard"></i> Hosts and VMs</a></h2></div>
+                        <ul id="host-list-container" class="nav nav-list">
+                            <li class=""><h5>Fetching info ...</h5></li>
+                        </ul>
+                    </div><!--/.well -->
+                </div><!--/span-->
+                <div class="span10">
+                    <div id="content">
+                        <div class="hero-unit">
+                            <h1>Salt Virt Proof of Concept!</h1>
+                            <p>
+
+                            </p>
+                            <p>Dette er ein enkel test på kva ein lett får til ved bruk av salt på nodane og salt sin virt modul.
+                            Programmet bruker salt-api via nginx for kommunikasjon med salt-stacken. Salt-stacken pratar så med kvar node over salt-bussen og køyrer virsh-kommandoar som er wrappa tilbake som json-data konvertert frå salt-virt-modulen.
+                            </p>
+                            Når ein trykker på maskin i venstre navigasjonsmeny så starta salt ein websocket-proxy som proxyar lokalt VNC ut på websocket, slikt at NoVNC-klienten kan kobla til. Merk: Dette krever at klient har tilgang til hypervisor på IP-nivå (t.d.10.2.66.x). Dette kan endrast til at salt proxyar klienten heile vegen ut på nett, dersom ein vil ha ekstern tilgang utan VPN.
+                            <p>
+                            Merk: Førebels ingen iptables-triksing, så dersom aktuell hypervisor ikkje har port open for VNC-connect så får ein berre "Connect timeout" ved forsøk på console.
+                            </p>
+                            <h4>Funksjonar</h4>
+                            <ul class="unstyled">
+                                <li><i class="icon-ok"></i>
+                                    VNC console i browser utan plugin
+                                </li>
+                                <li><i class="icon-ok"></i>
+                                    Live migration (dra VM og slepp på host)
+                                </li>
+                                <li><i class="icon-ok"></i>
+                                    VM Status
+                                </li>
+                                <li><i class="icon-ok"></i>
+                                    Start / guest shutdown  / vm poweroff
+                                </li>
+                                <li><i class="icon-ok"></i>
+                                    Host info
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div><!--/.fluid-container-->
+        <div class="container-fluid">
+            <div class="row-fluid">
+
+            <footer>
+            <p></p>
+            <img src="/static/idriftmono.png">
+            <p>&copy; 2012</p>
+            </footer>
+
+        </div>
+
+        <script src="//cdnjs.cloudflare.com/ajax/libs/jquery/1.8.3/jquery.min.js"></script>
+        <script src="/static/handlebars-1.0.rc.1.js"></script>
+        <script src="/static/bootstrap/js/bootstrap.min.js"></script>
+
+        <script id="vm_migration_modal_template" type="text/x-handlebars-template">
+            <div id="migration_modal" class="modal hide fade">
+              <div class="modal-header">
+                <button type="button" class="close" data-dismiss="modal" aria-hidden="true">&times;</button>
+                <h3>{{title}}</h3>
+              </div>
+              <div class="modal-body">
+                <p>{{body}}</p>
+              </div>
+              <div class="modal-footer">
+                <a href="#" class="btn close" data-dismiss="modal">Abort</a>
+                <a href="{{link}}" class="btn btn-primary {{link_class}}">{{ action }}</a>
+              </div>
+            </div>
+        </script>
+
+        <script id="vm_detail_template" type="text/x-handlebars-template">
+            <div class="navbar">
+                <div class="navbar-inner">
+                        <h1>{{vm}} <small><span class="state"></span> on host {{formatHostname host}}</small></h1>
+                    <div class="btn-toolbar">
+                        <div class="btn-group">
+                            <a title="Start VM" class="btn btn-large vm-start-link" href={{host}}:{{vm}}><i class="icon-play"></i></a> 
+                            <a title="Pause VM" class="btn btn-large disabled" href="#"><i class="icon-pause"></i></a> 
+                            <a title="Send shutdown to guest" class="btn btn-large vm-stop-link"  href="{{host}}:{{vm}}"><i class="icon-stop"></i></a> 
+                            <a title="Unplug the power" class="vm-poweroff-link btn btn-large" href={{host}}:{{vm}}><i class="icon-off"></i></a> 
+                        </div>
+                    </div>
+                </div>
+            </div> 
+            <div id="vnccontainer"><p class="well">Loading console ...</p></div>'
+        </script>
+
+        <script id="vm_list_template" type="text/x-handlebars-template">
+            {{#each hosts}}
+                <li class="nav-header"><h4><a class="hostlink" href="#" data-host='{{host}}'><i class="icon-home"></i>{{formatHostname host}}</a></h4></li>
+            {{#each vms}}
+                <li class="vm-container">
+                    <a draggable="true" class="vmlink" href={{../host}}:{{vm}}>
+                    <i class="icon-sign-blank {{info.state}}"></i>
+                        {{formatHostname vm}}</a>
+                </li>
+            {{/each}}
+            {{/each}}
+        </script>
+
+        <script id="full_info_template" type="text/x-handlebars-template">
+            <div class="well">
+                <h1>Overview <small>Hosts and virtual machines</small></h1>
+                <h3>Hosts</h3>
+                <table class="table table-condensed ">
+                    <tr class="box-header">
+                        <th>Host</th>
+                        <th># VMs</th>
+                        <th>Mem</th>
+                        <th>CPUs</th>
+                        <th>CPU MHz</th>
+                        <th>Cores</th>
+                        <th>CPU Model</th>
+                        <th>CPU Threads</th>
+                        <th>Sockets</th>
+                        <th>Free CPUs</th>
+                        <th>Mem Usage</th>
+                        </tr>
+                    </tr>
+                {{#each hosts}}
+                    <tr>
+                        <td><strong>{{formatHostname host}}</strong></td>
+                    {{#with info}}
+                        <td>{{vm_count vm_info}}</td>
+                        {{#with node_info}}
+                        <td>{{formatMem phymemory}}</td>
+                        <td>{{cpus}}</td>
+                        <td>{{cpumhz}}</td>
+                        <td>{{cpucores}}</td>
+                        <td>{{cpumodel}}</td>
+                        <td>{{cputhreads}}</td>
+                        <td>{{sockets}}</td>
+                        {{/with}}
+                        <td>{{freecpu}}</td>
+                        <td>{{mem_usage this }}</td>
+                    {{/with}}
+                    </tr>
+                {{/each}}
+                </table>
+                <h3>Virtual machines</h3>
+                <table class="table table-condensed ">
+                    {{vm_rows hosts}}
+                </table>
+            </div>
+        </script>
+
+
+        <script type="text/javascript">
+            Handlebars.registerHelper('formatMem', function() {
+                return new Handlebars.SafeString(parseInt(this.phymemory / 1024) + " GB") ;
+            });
+            Handlebars.registerHelper('formatHostname', function(hostname) {
+                return new Handlebars.SafeString(String(hostname).replace(strip_domain, ''));
+            });
+            Handlebars.registerHelper('vm_count', function() {
+                var count = 0;
+                $.each(this.vm_info, function(idx, obj) {
+                    count++;
+                });
+                return new Handlebars.SafeString(''+count);
+            });
+            Handlebars.registerHelper('vm_rows', function() {
+                var html = '';
+                $.each(this.hosts, function(idx, host) { 
+                    html += '<tr class="box-header"><td colspan="9"><strong>'+String(host.host).replace(strip_domain, '')+'</strong></td></tr>';
+                    html += '<tr class=""><th>VM</th><th># CPUs</th><th>Mem</th><th>Max Mem</th><th>VNC Port</th><th>CPU time</th><th>Disk Usage</th></tr>';
+                    $.each(host.info.vm_info, function(vm, attrs) {
+                        console.log('vmattrs', vm, attrs);
+                        disk_total = 0
+                        $.each(attrs.disks, function(disk_name, disk_obj) {
+                            if (disk_obj['disk size'] > 0 ) {
+                                disk_total += parseInt(disk_obj['disk size']);
+                            }else {
+                                var dsize = disk_obj['virtual size'].split(' ')[0]
+                                if(dsize.indexOf('M') !== -1) {
+                                    disk_total += parseInt(dsize.split('M')[0])/1024;
+                                }
+                                else if(dsize.indexOf('G') !== -1) {
+                                    disk_total += parseInt(dsize.split('G')[0]);
+                                }
+                            }
+                        });
+                        html += '<tr>'; 
+                        html += '<td><a class="vmlink" href='+host.host+':'+vm+'><i class="icon-sign-blank '+attrs.state+'"></i> '+String(vm).replace(strip_domain,'')+'</a></td>';
+                        html += '<td>'+attrs.cpu+'</td>';
+                        html += '<td>'+parseInt(attrs.mem/1024)+' MB</td>';
+                        html += '<td>'+parseInt(attrs.maxMem/1024)+' MB</td>';
+                        html += '<td>'+attrs.graphics.port+'</td>';
+                        html += '<td>'+attrs.cputime*1.0e-7+'</td>';
+                        html += '<td>'+parseInt(disk_total)+' GB</td>';
+                        html += '</tr>';
+                    });
+                });
+                return new Handlebars.SafeString(html);
+            });
+            Handlebars.registerHelper('mem_usage', function() {
+                var percent = ((this.node_info.phymemory - this.freemem) / this.node_info.phymemory)*100;
+                var pclass = 'success';
+                if (percent > 60) pclass = 'warning';
+                if (percent > 90) pclass = 'critical';
+                return new Handlebars.SafeString('<div class="progress progress-'+pclass+'"><div class="bar" style="width: '+percent+'%"></div></div>');
+            });
+
+            var SaltVirt = function() {
+
+                var api_user='saltwebuser';
+                var api_pass='saltwebpass';
+                // strip this domain from all hostnames
+                var strip_domain = '/testdomain.com/g';
+                // Static list of our hypervisors
+                var all_targets  = '*';
+                var token;
+                var vm_info;
+                var full_info;
+                // used to track currentvm
+                var currentvm;
+
+                var api_url_base = '/api';
+
+                var context = function(obj) {
+                    return $.extend({}, {
+                        client:'local',
+                    }, obj);
+                };
+                //'arg':''
+                jQuery.ajaxSettings.traditional = true;
+
+
+                // Log in, this is the starting point
+                $.post(api_url_base + '/login', { username:api_user,password:api_pass,eauth:'pam'}, function(data, textStatus, XMLHttpRequest) {
+                    console.log('data from login:', data);
+                    token = XMLHttpRequest.getResponseHeader('X-Auth-Token');
+
+                    $.ajaxSetup({beforeSend: function(jqXHR){
+                            jqXHR.setRequestHeader("Accept", "application/json");
+                            //jqXHR.setRequestHeader("Content-Type", "application/json");
+                            //jqXHR.traditional = true;
+                            jqXHR.overrideMimeType('application/json');
+                    //        jqXHR.setRequestHeader('X-Auth-Token',token);
+                    }});
+
+                    get_all_vms_and_states();
+
+                });
+                this.get_all_vms_and_states = function() {
+                    $.post(api_url_base + '/', context({
+                        tgt:all_targets,
+                        fun:'virt.vm_state'
+                    }), function(data) {
+                        console.log("API virt.vm_state returned", data);
+                        vm_info_update_and_render(data['return']['0']);
+                    });
+                }
+                var vm_info_update_and_render = function(vminfo) {
+                        var template = Handlebars.compile($('#vm_list_template').html());
+                        var hosts_and_vms = { hosts: [] };
+                        $.each(vminfo, function(host, vmobj) {
+                            if(jQuery.type(vmobj) == jQuery.type({})) {
+                                var vms = [];
+                                $.each(vmobj, function(vm, obj) {
+                                    // To support both virt.vm_state and virt.vm_info with same parser
+                                    if(jQuery.type(obj) == jQuery.type("")) {
+                                        obj = {'state':obj};
+                                    }
+                                    vms.push({
+                                        vm: vm,
+                                        info: obj
+                                    });
+
+                                });
+                                hosts_and_vms.hosts.push({host:host, vms: vms});
+                            }
+                        });
+                        console.log(hosts_and_vms);
+                        vm_info = vminfo;
+                        var html = template(hosts_and_vms);
+                        $('#host-list-container').html(html);
+                        // Bind events
+                        bind_vm_events();
+                        // Mark currentvm
+                        $('a[href="'+currentvm+'"]').closest('li').addClass('active');
+                }
+                var full_info_update_and_render = function(info) {
+                    var template = Handlebars.compile($('#full_info_template').html());
+                    var hosts_and_vms = { hosts: [] };
+                    $.each(info, function(host, vmobj) {
+                        if(jQuery.type(vmobj) == jQuery.type({})) {
+                            var vms = vmobj ;
+                            /*
+                            $.each(vmobj, function(vm, obj) {
+                                vms.push({
+                                key: vm,
+                                val: obj
+                                });
+                            });
+                            */
+                            hosts_and_vms.hosts.push({host:host, info: vms});
+                        }
+                    });
+                    var full_info = info;
+                    console.log(hosts_and_vms);
+                    var html = template(hosts_and_vms);
+                    $('#content').html(html);
+                };
+                var start_vm = function(host, vm) {
+                    $.post(api_url_base + '/', context({
+                        tgt:host,
+                        fun:'virt.start',
+                        arg:vm
+                    }), function(data, textStatus, XMLHttpRequest) {
+                        console.log("API returned", data);
+                        var vminfo = data['return'][0][host];
+                        console.log('start_vm', vminfo);
+                        // Refresh console
+                        get_vm_info(host, vm);
+                    });
+                }
+                var stop_vm = function(host, vm) {
+                    $.post(api_url_base + '/', context({
+                        tgt:host,
+                        fun:'virt.shutdown',
+                        arg:vm
+                    }), function(data, textStatus, XMLHttpRequest) {
+                        console.log("API returned", data);
+                        var vminfo = data['return'][0];
+                        console.log('stop_vm', vminfo);
+                    });
+                }
+                var poweroff_vm = function(host, vm) {
+                    $.post(api_url_base + '/', context({
+                        tgt:host,
+                        fun:'virt.destroy',
+                        arg:vm
+                    }), function(data, textStatus, XMLHttpRequest) {
+                        console.log("API returned", data);
+                        var vminfo = data['return'][0];
+                        console.log('poweroff_vm', vminfo);
+                    });
+                }
+                var get_vm_info = function(host, vm) {
+                    $.post(api_url_base + '/', context({
+                        tgt:host,
+                        fun:'virt.vm_info',
+                        arg:vm
+                    }), function(data, textStatus, XMLHttpRequest) {
+                        console.log("API vm_info returned", data);
+                        var vminfo = data['return'][0][host][vm];
+                        if(vminfo) {
+                            update_vminfo(host, vm, vminfo);
+                            var port = vminfo['graphics'].port;
+                            start_wsproxy(host, port, vminfo);
+                        }else{
+                            $('#vnccontainer').html('No graphics for this VM');
+                        }
+                    });
+                }
+                var get_full_info  = function() {
+                    $('#content').html('<div class="hero-unit"><h1>Loading...</h1></div>');
+                    $.post(api_url_base + '/', context({
+                        tgt:all_targets,
+                        fun:'virt.full_info'
+                    }), function(data, textStatus, XMLHttpRequest) {
+                        console.log("API returned", data);
+                        var info = data['return'][0];
+                        full_info_update_and_render(info);
+                    });
+                }
+                var get_host_info  = function(host) {
+                    $.post(api_url_base + '/', context({
+                        tgt:host,
+                        fun:'grains.items'
+                    }), function(data, textStatus, XMLHttpRequest) {
+                        console.log('grains', data['return'][0]);
+                        var grains = data['return'][0][host];
+                        $.post(api_url_base + '/', context({
+                            tgt:host,
+                            fun:'virt.node_info'
+                        }), function(data, textStatus, XMLHttpRequest) {
+                            console.log("API virt.node_info returned", data);
+                            var node_info = data['return'][0][host];
+                            var hostinfo = $.extend({}, grains, node_info);
+                            // Delete some keys
+                            delete hostinfo['pythonpath'];
+                            delete hostinfo['ps'];
+                            delete hostinfo['saltpath'];
+                            delete hostinfo['defaultencoding'];
+                            delete hostinfo['defaultlanguage'];
+                            var hosthtml = '<div class="hero-unit"><h1>'+host+'</h1><h3>Host info</h3><dl>';
+                            $.each(hostinfo, function(key, val) {
+                                hosthtml += '<dt>'+key+'</dt>';
+                                hosthtml += '<dd>'+val+'</dd>';
+                            });
+                            hosthtml += '</dl></div>';
+                            $('#content').html(hosthtml);
+                        });
+                    });
+                }
+                var update_vminfo = function(host, vm, vminfo) {
+                    vm_info[host][vm] = vminfo;
+                    vm_info_update_and_render(vm_info);
+                    $('#content').find('.navbar-inner').prepend($('<h5 class="pull-right">'+vminfo.cpu + '<small> CPUs</small> </h5>'));
+                    $('#content').find('.navbar-inner').prepend($('<h5 class="pull-right">'+ parseInt(vminfo.mem/1024) + '<small> MiB RAM</small> </h5>'));
+                    $('#content').find('.state').addClass(vminfo.state).text(vminfo.state);
+                    if(vminfo.state == 'running') {
+                        $('.icon-play').parent().addClass('disabled');
+                    }else if (vminfo.state == 'shutdown') {
+                        $('.icon-stop').parent().addClass('disabled');
+                        $('.icon-off').parent().addClass('disabled');
+                    }
+                }
+                var start_wsproxy = function(host, port, vminfo)  {
+                    var port = parseInt(port);
+                    var randomnumber=Math.floor(Math.random()*1000)
+                    var wsport = port + randomnumber;
+                    /*
+                    // Firt open iptables then start proxy
+                    $.post(api_url_base + '/', context({
+                        tgt:host,
+                        fun:'iptables.insert',
+                        arg:['filter', 'INPUT -p tcp -m state --state NEW -m limit --limit 5/hour --dport '+wsport+' -j ACCEPT']
+                    }), function(data, textStatus, XMLHttpRequest) {
+                    console.log("API iptables.insert returned", data['return']); 
+                    */
+                    if (vminfo.state == 'running') {
+                        $.post(api_url_base + '/', context({
+                            tgt:host,
+                            fun:'wsproxy.start',
+                            arg:[wsport, 'localhost:'+port],
+                        }), function(data, textStatus, XMLHttpRequest) {
+                            console.log("API wsproxy.start returned", data);
+                            var iframe = '<iframe border=0 frameborder="0" width="100%" height="800" src="noVNC/vnc_auto.html?host='+host+'&port='+wsport+'&keymap=no&password="></iframe>';
+                            $('#vnccontainer').html(iframe);
+                            // Delete iptables rule within 3 seconds
+                            //setTimeout('sv.delete_iptables("'+host+'","'+wsport+'")', 3000);
+                        });
+                    }else{
+                        $('#vnccontainer').html('<div class="well">No graphics for shut down VM</div>');
+                    }
+                    //});
+                }
+                this.delete_iptables = function(host, port) {
+                    $.post(api_url_base + '/', context({
+                        tgt:host,
+                        fun:'iptables.delete',
+                        arg:['filter', 'position=None', "'rule=INPUT -p tcp -m state --state NEW -m limit --limit 1/hour --dport "+port+" -j ACCEPT'"]
+                    }), function(data, textStatus, XMLHttpRequest) {
+                        console.log("API iptables.delete returned", data['return']);
+                    });
+                };
+                var migrate_vm  = function(host, vm, new_host) {
+                    $.post(api_url_base + '/', context({
+                        tgt:host,
+                        fun:'virt.migrate',
+                        arg:[vm, new_host, 'ssh=True']
+                    }), function(data, textStatus, XMLHttpRequest) {
+                        console.log("API migrate_vm returned", data);
+                    });
+                    // TODO sleep a couple of seconds and refresh?
+                }
+                $('body').on('click', '.vmlink', function(ev) {
+                    ev.stopPropagation();
+                    ev.preventDefault();
+                    // Remove any existing actives
+                    $('.nav-list li').removeClass('active');
+                    $(this).closest('li').addClass('active');
+                    var opts = $(this).attr('href')
+                    var host = opts.split(':')[0];
+                    var vm   = opts.split(':')[1];
+                    currentvm = opts;
+                    var template = Handlebars.compile($('#vm_detail_template').html());
+                    $('#content').html(template({host:host,vm:vm}));
+                    //var port = vm_info[host][vm]['graphics'].port;
+                    //update_vminfo(host, vm, vm_info[host][vm]);
+                    //start_wsproxy(host, port, vm_info[host][vm]);
+                    get_vm_info(host, vm);
+                    return false;
+                });
+                $('body').on('click', '.vm-start-link', function(ev) {
+                    ev.stopPropagation();
+                    ev.preventDefault();
+                    var opts = $(this).attr('href');
+                    var host = opts.split(':')[0];
+                    var vm   = opts.split(':')[1];
+                    start_vm(host, vm);
+                    return false;
+                });
+                $('body').on('click', '.vm-stop-link', function(ev) {
+                    ev.stopPropagation();
+                    ev.preventDefault();
+                    var opts = $(this).attr('href');
+                    var host = opts.split(':')[0];
+                    var vm   = opts.split(':')[1];
+                    stop_vm(host, vm);
+                    return false;
+                });
+                $('body').on('click', '.vm-poweroff-link', function(ev) {
+                    ev.stopPropagation();
+                    ev.preventDefault();
+                    var opts = $(this).attr('href');
+                    var host = opts.split(':')[0];
+                    var vm   = opts.split(':')[1];
+                    poweroff_vm(host, vm);
+                    return false;
+                });
+                $('body').on('click', '.hostlink', function(ev) {
+                    ev.stopPropagation();
+                    ev.preventDefault();
+                    var host = $(this).data('host');
+                    get_host_info(host);
+                    $("body").scrollTop(0);
+                    return false;
+                });
+                $('body').on('click', '.overview-link', function(ev) {
+                    ev.stopPropagation();
+                    ev.preventDefault();
+                    // Remove any existing actives
+                    $('.nav-list li').removeClass('active');
+                    get_full_info();
+                    //$("html, body").animate({ scrollTop: 0 }, "slow");
+                    $("body").scrollTop(0);
+                    return false;
+                });
+                $('body').on('click', '.migrate_link', function(ev) {
+                    ev.stopPropagation();
+                    ev.preventDefault();
+                    var opts = $(this).attr('href');
+                    var host = opts.split(':')[0];
+                    var vm   = opts.split(':')[1];
+                    var new_host   = opts.split(':')[2];
+                    migrate_vm(host, vm, new_host);
+                    $('#migration_modal').modal('hide');
+                    return false;
+                });
+
+                // Bind drag % drop
+                var bind_vm_events = function() {
+                    $('.vmlink')
+                        .bind('dragstart', function(ev) {
+                        var dt = ev.originalEvent.dataTransfer;
+                        var href = $(this).attr('href')
+                        console.log('set href', href);
+                        dt.setData("href", href);
+
+                        // Remove any existing modal
+                        $('#migration_modal').remove();
+                        return true;
+                    })
+                        .bind('dragend', function(ev) {
+                            return false;
+                    });
+                    $('.hostlink')
+                        .bind('dragenter', function(ev) {
+                            console.log('dragenter', $(ev));
+                            $(ev.target).addClass('alert-success');
+                            return false;
+                    })
+                        .bind('dragleave', function(ev) {
+                            console.log('dragleave', $(ev));
+                            $(ev.target).removeClass('alert-success');
+                            return false;
+                    })
+                        .bind('dragover', function(ev) {
+                            return false;
+                    })
+                        .bind('drop', function(ev) {
+                            console.log('drop', $(ev));
+                            $(ev.target).removeClass('alert-success');
+                            var href = ev.originalEvent.dataTransfer.getData('href');
+                            console.log('href dropped', href);
+                            var host = href.split(':')[0];
+                            var vm   = href.split(':')[1];
+                            var new_host = $(ev.target).data('host');
+                            console.log('new-host', new_host);
+
+                            var template = Handlebars.compile($('#vm_migration_modal_template').html());
+                            var ctx = {
+                                id: 'migration_modal',
+                                title: 'Live migration',
+                                action: 'Start migration',
+                                link: host+':'+vm+':'+new_host,
+                                link_class: 'migrate_link',
+                                body: new Handlebars.SafeString('Do you want to migrate the VM <strong>'+vm+'</strong> from host <strong>'+host+'</strong> to host <strong>'+new_host+'</strong> ?')
+                            }
+                            $('body').append(template(ctx));
+                            $('#migration_modal').modal('show');
+
+                            return false;
+                    })
+                }
+                // Update the vm states regurlarly
+                state_update_timer = setInterval('sv.get_all_vms_and_states()', 30000)
+
+                return this;
+
+            };
+            var sv = SaltVirt();
+            window.sv = sv;
+        </script>
+
+    </body>
+</html>
