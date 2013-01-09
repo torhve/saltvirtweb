@@ -87,6 +87,12 @@
             <div class="row-fluid">
                 <div class="span2">
                     <div class="well sidebar-nav">
+                        <div class="box-header"><h2><a href='#' class=""><i class="icon-cogs"></i> Operations</a></h2></div>
+                        <ul id="operation-list-container" class="nav nav-list">
+                            <li class=""><a href="#" class="btn vm-create-link"><i class="icon-plus-sign"></i>Create VM</a></li>
+                        </ul>
+                    </div>
+                    <div class="well sidebar-nav">
                         <div class="box-header"><h2><a href='#' class="overview-link"><i class="icon-dashboard"></i> Hosts and VMs</a></h2></div>
                         <ul id="host-list-container" class="nav nav-list">
                             <li class=""><h5>Fetching info ...</h5></li>
@@ -101,11 +107,17 @@
 
                             </p>
                             <p>Dette er ein enkel test på kva ein lett får til ved bruk av salt på nodane og salt sin virt modul.
-                            Programmet bruker salt-api via nginx for kommunikasjon med salt-stacken. Salt-stacken pratar så med kvar node over salt-bussen og køyrer virsh-kommandoar som er wrappa tilbake som json-data konvertert frå salt-virt-modulen.
+                            Programmet bruker salt-api via nginx for kommunikasjon med salt-stacken. Salt pratar så med kvar node over salt-bussen og køyrer virsh-kommandoar som er wrappa tilbake som json-data konvertert frå salt-virt-modulen.
                             </p>
-                            Når ein trykker på maskin i venstre navigasjonsmeny så starta salt ein websocket-proxy som proxyar lokalt VNC ut på websocket, slikt at NoVNC-klienten kan kobla til. Merk: Dette krever at klient har tilgang til hypervisor på IP-nivå (t.d.10.2.66.x). Dette kan endrast til at salt proxyar klienten heile vegen ut på nett, dersom ein vil ha ekstern tilgang utan VPN.
                             <p>
-                            Merk: Førebels ingen iptables-triksing, så dersom aktuell hypervisor ikkje har port open for VNC-connect så får ein berre "Connect timeout" ved forsøk på console.
+                            Måten den får console på er litt intrikat for å kunne tilby console til alle stader utan å ha direkte IP-kontakt inn til hypervisor og for å få kryptering.
+                            Det vert starta TCP frå hypervisor:VNC til salt:random-port, og så er det proxy frå på salt-serveren til browseren.
+                            <br>
+                            T.d:
+                            <br>
+                            <pre>
+                            10.2.66.14:5900 <=> 83.242.12.18:6969 <=> 127.0.0.1:6969 <=> 83.242.12.18:7979 <=> Klient-PC (web socket)
+                            </pre>
                             </p>
                             <h4>Funksjonar</h4>
                             <ul class="unstyled">
@@ -123,6 +135,9 @@
                                 </li>
                                 <li><i class="icon-ok"></i>
                                     Host info
+                                </li>
+                                <li><i class="icon-ok"></i>
+                                    Oppretting av VM på predefinerte nettverk og storage
                                 </li>
                             </ul>
                         </div>
@@ -162,6 +177,104 @@
             </div>
         </script>
 
+        <script id="vm_create_template" type="text/x-handlebars-template">
+            <div class="hero-unit">
+                <h1>Create a new Virtual Machine</h1>
+                <p><br></p>
+                <form id="vm_create_form" class="form-horizontal">
+                    <div class="control-group">
+                        <label class="control-label" for="inputName">Name</label>
+                        <div class="controls">
+                            <input type="text" name='name' id="inputName" placeholder="Name" required>
+                        </div>
+                    </div>
+                    <div class="control-group">
+                        <label class="control-label" for="inputDisksize">Disk size (in GB)</label>
+                        <div class="controls">
+                            <input type="text" id="inputDisksize" name="disksize" placeholder="12" required>
+                        </div>
+                        <label class="control-label" for="inputMem">Memory size (in MB)</label>
+                        <div class="controls">
+                            <input type="text" id="inputMem" name="mem" placeholder="1024" required>
+                        </div>
+                        <label class="control-label" for="inputMem">CPUs</label>
+                        <div class="controls">
+                            <input type="text" id="inputCPU" name="cpus" placeholder="1" required>
+                        </div>
+                    </div>
+                    <div class="control-group">
+                        <label class="control-label" for="">VM Guest Type</label>
+                        <div class="controls">
+                            <label class="radio">
+                                <input type="radio" name="ostype" value="windows2008" checked>
+                                Windows 2008
+                            </label>
+                            <label class="radio">
+                                <input type="radio" name="ostype" value="windows2012">
+                                Windows 2012
+                            </label>
+                            <label class="radio">
+                                <input type="radio" name="ostype" value="linux">
+                                Linux
+                            </label>
+                        </div>
+                    </div>
+                    <div class="control-group">
+                        <label class="control-label" for="">Storage type</label>
+                        <div class="controls">
+                            <label class="radio">
+                                <input type="radio" name="storagetype" id="" value="cvg1" checked>
+                                SAN SAS
+                            </label>
+                            <label class="radio">
+                                <input type="radio" name="storagetype" id="" value="cvgfata">
+                                SAN FATA
+                            </label>
+                        </div>
+                    </div>
+                    <div class="control-group">
+                        <label class="control-label" for="">Network</label>
+                        <div class="controls">
+                            <label class="radio">
+                                <input type="radio" name="network" id="" value="brvlan4" checked>
+                                iDrift LAN
+                            </label>
+                            <label class="radio">
+                                <input type="radio" name="network" id="" value="brvlan6">
+                                iDrift Serversone
+                            </label>
+                            <label class="radio">
+                                <input type="radio" name="network" id="" value="brvlan12">
+                                DMZ
+                            </label>
+                            <label class="radio">
+                                <input type="radio" name="network" id="" value="brvlan66">
+                                iDrift ADM
+                            </label>
+                        </div>
+                    </div>
+                    <div class="control-group">
+                        <label class="control-label" for="">Choose host</label>
+                        <div class="controls">
+                            {{#each hosts}}
+                            <label class="radio">
+                                <input type="radio" name="host" value="{{host}}">
+                                {{host}}
+                            </label>
+                            {{/each}}
+                        </div>
+                    </div>
+                    <div class="control-group">
+                        <div class="controls">
+                            <label class="checkbox">
+                                <input type="checkbox" required> I know what I am doing
+                            </label>
+                            <button type="submit" class="btn btn-large btn-primary">Create VM</button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </script>
         <script id="vm_detail_template" type="text/x-handlebars-template">
             <div class="navbar">
                 <div class="navbar-inner">
@@ -244,7 +357,7 @@
                 return new Handlebars.SafeString(parseInt(this.phymemory / 1024) + " GB") ;
             });
             Handlebars.registerHelper('formatHostname', function(hostname) {
-                return new Handlebars.SafeString(String(hostname).replace(strip_domain, ''));
+                return new Handlebars.SafeString(String(hostname).replace(sv.strip_domain, ''));
             });
             Handlebars.registerHelper('vm_count', function() {
                 var count = 0;
@@ -256,7 +369,7 @@
             Handlebars.registerHelper('vm_rows', function() {
                 var html = '';
                 $.each(this.hosts, function(idx, host) { 
-                    html += '<tr class="box-header"><td colspan="9"><strong>'+String(host.host).replace(strip_domain, '')+'</strong></td></tr>';
+                    html += '<tr class="box-header"><td colspan="9"><strong>'+String(host.host).replace(sv.strip_domain, '')+'</strong></td></tr>';
                     html += '<tr class=""><th>VM</th><th># CPUs</th><th>Mem</th><th>Max Mem</th><th>VNC Port</th><th>CPU time</th><th>Disk Usage</th></tr>';
                     $.each(host.info.vm_info, function(vm, attrs) {
                         console.log('vmattrs', vm, attrs);
@@ -275,7 +388,7 @@
                             }
                         });
                         html += '<tr>'; 
-                        html += '<td><a class="vmlink" href='+host.host+':'+vm+'><i class="icon-sign-blank '+attrs.state+'"></i> '+String(vm).replace(strip_domain,'')+'</a></td>';
+                        html += '<td><a class="vmlink" href='+host.host+':'+vm+'><i class="icon-sign-blank '+attrs.state+'"></i> '+String(vm).replace(sv.strip_domain,'')+'</a></td>';
                         html += '<td>'+attrs.cpu+'</td>';
                         html += '<td>'+parseInt(attrs.mem/1024)+' MB</td>';
                         html += '<td>'+parseInt(attrs.maxMem/1024)+' MB</td>';
@@ -297,10 +410,10 @@
 
             var SaltVirt = function() {
 
-                var api_user='saltwebuser';
-                var api_pass='saltwebpass';
+                var api_user='saltuser';
+                var api_pass='jiop531';
                 // strip this domain from all hostnames
-                var strip_domain = '/testdomain.com/g';
+                strip_domain = /.idrift.no/g;
                 // Static list of our hypervisors
                 var all_targets  = '*';
                 var token;
@@ -365,7 +478,7 @@
                                 hosts_and_vms.hosts.push({host:host, vms: vms});
                             }
                         });
-                        console.log(hosts_and_vms);
+                        //console.log(hosts_and_vms);
                         vm_info = vminfo;
                         var html = template(hosts_and_vms);
                         $('#host-list-container').html(html);
@@ -396,15 +509,15 @@
                     var html = template(hosts_and_vms);
                     $('#content').html(html);
                 };
-                var start_vm = function(host, vm) {
+                this.start_vm = function(host, vm) {
+                    console.log('start_vm called with args:', host, vm);
                     $.post(api_url_base + '/', context({
                         tgt:host,
                         fun:'virt.start',
                         arg:vm
                     }), function(data, textStatus, XMLHttpRequest) {
-                        console.log("API returned", data);
                         var vminfo = data['return'][0][host];
-                        console.log('start_vm', vminfo);
+                        console.log('API start_vm returned', vminfo);
                         // Refresh console
                         get_vm_info(host, vm);
                     });
@@ -503,34 +616,39 @@
                     }
                 }
                 var start_wsproxy = function(host, port, vminfo)  {
+                    var proxyhost = 'salt.idrift.no';
                     var port = parseInt(port);
                     var randomnumber=Math.floor(Math.random()*1000)
-                    var wsport = port + randomnumber;
-                    /*
-                    // Firt open iptables then start proxy
+                    var socatport = port + randomnumber;
+                    var wsport = socatport + randomnumber;
+                    // First proxy connection then proxy connection then wsproxy connection
+                    if (vminfo.state != 'running') {
+                        $('#vnccontainer').html('<div class="well">No graphics for shut down VM</div>');
+                        return false;
+                    }
                     $.post(api_url_base + '/', context({
-                        tgt:host,
-                        fun:'iptables.insert',
-                        arg:['filter', 'INPUT -p tcp -m state --state NEW -m limit --limit 5/hour --dport '+wsport+' -j ACCEPT']
-                    }), function(data, textStatus, XMLHttpRequest) {
-                    console.log("API iptables.insert returned", data['return']); 
-                    */
-                    if (vminfo.state == 'running') {
+                        tgt:proxyhost,
+                        fun:'socat.start',
+                        arg:['TCP4-LISTEN:'+socatport, 'TCP4-LISTEN:'+wsport+',bind=127.0.0.1']
+                    }), function(data) {
+                        console.log("API socat.start returned", data['return'][0]); 
                         $.post(api_url_base + '/', context({
                             tgt:host,
-                            fun:'wsproxy.start',
-                            arg:[wsport, 'localhost:'+port],
-                        }), function(data, textStatus, XMLHttpRequest) {
-                            console.log("API wsproxy.start returned", data);
-                            var iframe = '<iframe border=0 frameborder="0" width="100%" height="800" src="noVNC/vnc_auto.html?host='+host+'&port='+wsport+'&keymap=no&password="></iframe>';
-                            $('#vnccontainer').html(iframe);
-                            // Delete iptables rule within 3 seconds
-                            //setTimeout('sv.delete_iptables("'+host+'","'+wsport+'")', 3000);
+                            fun:'socat.start',
+                            arg:['TCP4:127.0.0.1:'+port, 'TCP4:'+proxyhost+':'+socatport]
+                        }), function(data) {
+                            console.log("API socat.start returned", data['return'][0][host]); 
+                            $.post(api_url_base + '/', context({
+                                tgt:proxyhost,
+                                fun:'wsproxy.start',
+                                arg:[proxyhost+':'+wsport, 'localhost:'+wsport],
+                            }), function(data, textStatus, XMLHttpRequest) {
+                                console.log("API wsproxy.start returned", data['return']['0'][proxyhost]);
+                                var iframe = '<iframe border=0 frameborder="0" width="100%" height="800" src="noVNC/vnc_auto.html?host='+proxyhost+'&port='+wsport+'&keymap=no&password=&encrypt=false"></iframe>';
+                                $('#vnccontainer').html(iframe);
+                            });
                         });
-                    }else{
-                        $('#vnccontainer').html('<div class="well">No graphics for shut down VM</div>');
-                    }
-                    //});
+                    });
                 }
                 this.delete_iptables = function(host, port) {
                     $.post(api_url_base + '/', context({
@@ -552,8 +670,6 @@
                     // TODO sleep a couple of seconds and refresh?
                 }
                 $('body').on('click', '.vmlink', function(ev) {
-                    ev.stopPropagation();
-                    ev.preventDefault();
                     // Remove any existing actives
                     $('.nav-list li').removeClass('active');
                     $(this).closest('li').addClass('active');
@@ -570,8 +686,6 @@
                     return false;
                 });
                 $('body').on('click', '.vm-start-link', function(ev) {
-                    ev.stopPropagation();
-                    ev.preventDefault();
                     var opts = $(this).attr('href');
                     var host = opts.split(':')[0];
                     var vm   = opts.split(':')[1];
@@ -579,8 +693,6 @@
                     return false;
                 });
                 $('body').on('click', '.vm-stop-link', function(ev) {
-                    ev.stopPropagation();
-                    ev.preventDefault();
                     var opts = $(this).attr('href');
                     var host = opts.split(':')[0];
                     var vm   = opts.split(':')[1];
@@ -588,8 +700,6 @@
                     return false;
                 });
                 $('body').on('click', '.vm-poweroff-link', function(ev) {
-                    ev.stopPropagation();
-                    ev.preventDefault();
                     var opts = $(this).attr('href');
                     var host = opts.split(':')[0];
                     var vm   = opts.split(':')[1];
@@ -597,16 +707,12 @@
                     return false;
                 });
                 $('body').on('click', '.hostlink', function(ev) {
-                    ev.stopPropagation();
-                    ev.preventDefault();
                     var host = $(this).data('host');
                     get_host_info(host);
                     $("body").scrollTop(0);
                     return false;
                 });
                 $('body').on('click', '.overview-link', function(ev) {
-                    ev.stopPropagation();
-                    ev.preventDefault();
                     // Remove any existing actives
                     $('.nav-list li').removeClass('active');
                     get_full_info();
@@ -615,8 +721,6 @@
                     return false;
                 });
                 $('body').on('click', '.migrate_link', function(ev) {
-                    ev.stopPropagation();
-                    ev.preventDefault();
                     var opts = $(this).attr('href');
                     var host = opts.split(':')[0];
                     var vm   = opts.split(':')[1];
@@ -625,21 +729,76 @@
                     $('#migration_modal').modal('hide');
                     return false;
                 });
+                $('body').on('click', '.vm-create-link', function(ev) {
+                    var template = Handlebars.compile($('#vm_create_template').html());
+                    // TODO make this dynamic:
+                    var hosts = {
+                        hosts: []
+                    }
+                    $.each(['fremen.idrift.no', 'harkonnen.idrift.no', 'chani.idrift.no'], function(index, host) {
+                        hosts.hosts.push({host:host, index:index});
+                    });
+                    console.log('hosts', hosts);
+                    $('#content').html(template(hosts));
+                    return false;
+                });
+                $('body').on('submit', '#vm_create_form', function(ev) {
+                    $(this).find('button').addClass('disabled').html('Creating VM...');
+                    var data = $(this).serialize().split('&');
+                    console.log('form data', data);
+                    var host;
+                    var vm;
+                    $.each(data, function(idx, val) {
+                        var key = val.split('=')[0];
+                        var val = val.split('=')[1];
+                        if (key == 'host')
+                            host = val;
+                        if (key == 'name')
+                            vm = val;
+                    })
+                    $.post(api_url_base + '/', context({
+                        tgt:host,
+                        fun:'virtutils.create_vm',
+                        arg:data
+                    }), function(data) {
+                        var ret = data['return'][0][host];
+                        console.log("API virt.vm_create returned", ret);
+                        if(ret.vm) {
+                            // Wait 5000 ms before start
+                            //setTimeout('sv.start_vm("'+host+'", "'+vm+'")', 5000)
+                            var template = Handlebars.compile($('#vm_detail_template').html());
+                            $('#content').html(template({host:host,vm:vm}));
+                            start_vm(host, vm);
+                        }
+                        else {
+                            alert(ret);
+                        }
+                    });
+                    return false;
+                });
 
                 // Bind drag % drop
                 var bind_vm_events = function() {
                     $('.vmlink')
                         .bind('dragstart', function(ev) {
-                        var dt = ev.originalEvent.dataTransfer;
-                        var href = $(this).attr('href')
-                        console.log('set href', href);
-                        dt.setData("href", href);
+                            var dt = ev.originalEvent.dataTransfer;
+                            var href = $(this).attr('href')
+                            console.log('set href', href);
+                            dt.setData("href", href);
 
-                        // Remove any existing modal
-                        $('#migration_modal').remove();
-                        return true;
+                            // Remove any existing modal
+                            $('#migration_modal').remove();
+
+                            // Hide other VMs
+                            //$('.vm-container').addClass('hidden');
+                            // Don't hide this
+                            //$(this).closest('li').removeClass('hidden');
+                            return true;
                     })
                         .bind('dragend', function(ev) {
+                        $('.vm-container').hide();
+                            // Show other VMs
+                            //$('.vm-container').removeClass('hidden');
                             return false;
                     });
                     $('.hostlink')
