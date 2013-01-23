@@ -33,7 +33,7 @@ h6 {
     text-transform: capitalize;
 }
 a {
-    color: #066;
+   /* color: #066;*/
     /*color: #FABD23;*/
 }
 .navbar-inner {

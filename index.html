@@ -51,6 +51,7 @@
         </style>
         <link href="/static/bootstrap/css/bootstrap-responsive.css" rel="stylesheet">
         <link href="/static/screen.css" rel="stylesheet">
+        <link href="/static/cubism.css" rel="stylesheet">
 
         <!-- HTML5 shim, for IE6-8 support of HTML5 elements -->
         <!--[if lt IE 9]>
@@ -90,6 +91,9 @@
                         <div class="box-header"><h2><a href='#' class=""><i class="icon-cogs"></i> Operations</a></h2></div>
                         <ul id="operation-list-container" class="nav nav-list">
                             <li class=""><a href="#" class="btn vm-create-link"><i class="icon-plus-sign"></i>Create VM</a></li>
+                            <li class=""><a href="#" class="btn vm_stats"><i class="icon-bar-chart"></i> CPU Monitor</a></li>
+                            <li class=""><a href="#" class="btn vm_net_stats"><i class="icon-bar-chart"></i> Net Monitor</a></li>
+                            <li class=""><a href="#" class="btn vm_stats_disk"><i class="icon-bar-chart"></i> Disk Monitor</a></li>
                         </ul>
                     </div>
                     <div class="well sidebar-nav">
@@ -151,8 +155,8 @@
 
             <footer>
             <p></p>
-            <img src="/static/idriftmono.png">
-            <p>&copy; 2012</p>
+                <img class="pull-left" src="/static/saltstack_logo.png">
+                <img class="pull-right"  src="/static/idriftmono.png">
             </footer>
 
         </div>
@@ -160,6 +164,15 @@
         <script src="//cdnjs.cloudflare.com/ajax/libs/jquery/1.8.3/jquery.min.js"></script>
         <script src="/static/handlebars-1.0.rc.1.js"></script>
         <script src="/static/bootstrap/js/bootstrap.min.js"></script>
+        <script src="/static/d3.v3.min.js"></script>
+        <script src="/static/cubism.v1.min.js"></script>
+
+        <script id="vm_monitor" type="text/x-handlebars-template">
+            <div class="well">
+                <h1>Monitor <small>Virtual machine {{title}} usage</small></h1>
+                <div id="graphs"></div>
+            </div>
+        </script>
 
         <script id="vm_migration_modal_template" type="text/x-handlebars-template">
             <div id="migration_modal" class="modal hide fade">
@@ -378,12 +391,15 @@
                             if (disk_obj['disk size'] > 0 ) {
                                 disk_total += parseInt(disk_obj['disk size']);
                             }else {
-                                var dsize = disk_obj['virtual size'].split(' ')[0]
-                                if(dsize.indexOf('M') !== -1) {
-                                    disk_total += parseInt(dsize.split('M')[0])/1024;
-                                }
-                                else if(dsize.indexOf('G') !== -1) {
-                                    disk_total += parseInt(dsize.split('G')[0]);
+                                var dsize = disk_obj['virtual size'];
+                                if (dsize != undefined) {
+                                    dsize = dsize.split(' ')[0]
+                                    if(dsize.indexOf('M') !== -1) {
+                                        disk_total += parseInt(dsize.split('M')[0])/1024;
+                                    }
+                                    else if(dsize.indexOf('G') !== -1) {
+                                        disk_total += parseInt(dsize.split('G')[0]);
+                                    }
                                 }
                             }
                         });
@@ -417,14 +433,14 @@
                 // Static list of our hypervisors
                 var all_targets  = '*';
                 var token;
-                var vm_info;
-                var full_info;
+                this.vm_info;
+                this.full_info;
                 // used to track currentvm
                 var currentvm;
 
                 var api_url_base = '/api';
 
-                var context = function(obj) {
+                var tcontext = function(obj) {
                     return $.extend({}, {
                         client:'local',
                     }, obj);
@@ -450,7 +466,7 @@
 
                 });
                 this.get_all_vms_and_states = function() {
-                    $.post(api_url_base + '/', context({
+                    $.post(api_url_base + '/', tcontext({
                         tgt:all_targets,
                         fun:'virt.vm_state'
                     }), function(data) {
@@ -511,7 +527,7 @@
                 };
                 this.start_vm = function(host, vm) {
                     console.log('start_vm called with args:', host, vm);
-                    $.post(api_url_base + '/', context({
+                    $.post(api_url_base + '/', tcontext({
                         tgt:host,
                         fun:'virt.start',
                         arg:vm
@@ -523,7 +539,7 @@
                     });
                 }
                 var stop_vm = function(host, vm) {
-                    $.post(api_url_base + '/', context({
+                    $.post(api_url_base + '/', tcontext({
                         tgt:host,
                         fun:'virt.shutdown',
                         arg:vm
@@ -534,7 +550,7 @@
                     });
                 }
                 var poweroff_vm = function(host, vm) {
-                    $.post(api_url_base + '/', context({
+                    $.post(api_url_base + '/', tcontext({
                         tgt:host,
                         fun:'virt.destroy',
                         arg:vm
@@ -545,7 +561,7 @@
                     });
                 }
                 var get_vm_info = function(host, vm) {
-                    $.post(api_url_base + '/', context({
+                    $.post(api_url_base + '/', tcontext({
                         tgt:host,
                         fun:'virt.vm_info',
                         arg:vm
@@ -563,7 +579,7 @@
                 }
                 var get_full_info  = function() {
                     $('#content').html('<div class="hero-unit"><h1>Loading...</h1></div>');
-                    $.post(api_url_base + '/', context({
+                    $.post(api_url_base + '/', tcontext({
                         tgt:all_targets,
                         fun:'virt.full_info'
                     }), function(data, textStatus, XMLHttpRequest) {
@@ -573,13 +589,13 @@
                     });
                 }
                 var get_host_info  = function(host) {
-                    $.post(api_url_base + '/', context({
+                    $.post(api_url_base + '/', tcontext({
                         tgt:host,
                         fun:'grains.items'
                     }), function(data, textStatus, XMLHttpRequest) {
                         console.log('grains', data['return'][0]);
                         var grains = data['return'][0][host];
-                        $.post(api_url_base + '/', context({
+                        $.post(api_url_base + '/', tcontext({
                             tgt:host,
                             fun:'virt.node_info'
                         }), function(data, textStatus, XMLHttpRequest) {
@@ -626,32 +642,32 @@
                         $('#vnccontainer').html('<div class="well">No graphics for shut down VM</div>');
                         return false;
                     }
-                    $.post(api_url_base + '/', context({
+                    $.post(api_url_base + '/', tcontext({
                         tgt:proxyhost,
                         fun:'socat.start',
                         arg:['TCP4-LISTEN:'+socatport, 'TCP4-LISTEN:'+wsport+',bind=127.0.0.1']
                     }), function(data) {
                         console.log("API socat.start returned", data['return'][0]); 
-                        $.post(api_url_base + '/', context({
-                            tgt:host,
-                            fun:'socat.start',
-                            arg:['TCP4:127.0.0.1:'+port, 'TCP4:'+proxyhost+':'+socatport]
-                        }), function(data) {
-                            console.log("API socat.start returned", data['return'][0][host]); 
-                            $.post(api_url_base + '/', context({
-                                tgt:proxyhost,
-                                fun:'wsproxy.start',
-                                arg:[proxyhost+':'+wsport, 'localhost:'+wsport],
-                            }), function(data, textStatus, XMLHttpRequest) {
-                                console.log("API wsproxy.start returned", data['return']['0'][proxyhost]);
-                                var iframe = '<iframe border=0 frameborder="0" width="100%" height="800" src="noVNC/vnc_auto.html?host='+proxyhost+'&port='+wsport+'&keymap=no&password=&encrypt=false"></iframe>';
-                                $('#vnccontainer').html(iframe);
-                            });
-                        });
+                    });
+                    $.post(api_url_base + '/', tcontext({
+                        tgt:host,
+                        fun:'socat.start',
+                        arg:['TCP4:127.0.0.1:'+port, 'TCP4:'+proxyhost+':'+socatport]
+                    }), function(data) {
+                        console.log("API socat.start returned", data['return'][0][host]); 
+                    });
+                    $.post(api_url_base + '/', tcontext({
+                            tgt:proxyhost,
+                            fun:'wsproxy.start',
+                            arg:[proxyhost+':'+wsport, 'localhost:'+wsport],
+                        }), function(data, textStatus, XMLHttpRequest) {
+                            console.log("API wsproxy.start returned", data['return']['0'][proxyhost]);
+                            var iframe = '<iframe border=0 frameborder="0" width="100%" height="800" src="noVNC/vnc_auto.html?host='+proxyhost+'&port='+wsport+'&keymap=no&password=&encrypt=true"></iframe>';
+                            $('#vnccontainer').html(iframe);
                     });
                 }
                 this.delete_iptables = function(host, port) {
-                    $.post(api_url_base + '/', context({
+                    $.post(api_url_base + '/', tcontext({
                         tgt:host,
                         fun:'iptables.delete',
                         arg:['filter', 'position=None', "'rule=INPUT -p tcp -m state --state NEW -m limit --limit 1/hour --dport "+port+" -j ACCEPT'"]
@@ -660,7 +676,7 @@
                     });
                 };
                 var migrate_vm  = function(host, vm, new_host) {
-                    $.post(api_url_base + '/', context({
+                    $.post(api_url_base + '/', tcontext({
                         tgt:host,
                         fun:'virt.migrate',
                         arg:[vm, new_host, 'ssh=True']
@@ -670,6 +686,7 @@
                     // TODO sleep a couple of seconds and refresh?
                 }
                 $('body').on('click', '.vmlink', function(ev) {
+                    $("body").scrollTop(0);
                     // Remove any existing actives
                     $('.nav-list li').removeClass('active');
                     $(this).closest('li').addClass('active');
@@ -756,7 +773,7 @@
                         if (key == 'name')
                             vm = val;
                     })
-                    $.post(api_url_base + '/', context({
+                    $.post(api_url_base + '/', tcontext({
                         tgt:host,
                         fun:'virtutils.create_vm',
                         arg:data
@@ -775,6 +792,158 @@
                         }
                     });
                     return false;
+                });
+                /* Custom metric that polls Salt */
+                var salt_metric = function(host, vm, fun, attr) {
+                    var value = 0,
+                        values = [],
+                        realvalues = [],
+                        i = 0,
+                        last;
+                    return context.metric(function(start, stop, step, callback) {
+                        start = +start, stop = +stop;
+                        if (isNaN(last)) last = start;
+                        $.post(api_url_base + '/', tcontext({
+                            tgt:host,
+                            fun:fun,
+                            arg:[vm]
+                        }), function(data) {
+                            if(data['return'] != undefined) {
+                                var ret = data['return'][0][host];
+                                var value = parseInt(ret[vm][attr]);
+                                if(attr == 'tx_bytes') {
+                                    value = value * -1;
+                                }
+                                var lastval = realvalues.slice(-1)[0];
+                                // Need a real value to calculate diff
+                                if (lastval != 0) {
+                                    var thisval = value - lastval;
+                                    values.push(thisval);
+                                } else { 
+                                    values.push(0);
+                                }
+                                realvalues.push(value);
+                                console.log(start, stop, step, vm, values);
+                            }else {
+                                // Libvirt no history :(
+                                // Fill values with 0
+                                while (last < stop) {
+                                    last += step;
+                                    value = 0;
+                                    values.push(value);
+                                    realvalues.push(value);
+                                }
+                            }
+                            values = values.slice((start - stop) / step);
+                            realvalues = realvalues.slice((start - stop) / step);
+                            callback(null, values );
+                        });
+                    }, String(vm).replace(sv.strip_domain,'')+ ' ' + attr);
+                }
+                var start_cubism = function(container, metrics, extents) {
+                    // Create the graphs and add to #graphs container
+                    d3.select(container).call( function(div) {
+
+                      // An axis at the top
+                      div.append("div")
+                          .attr("class", "axis")
+                          .call(context.axis().orient("top"));
+
+                      // All the horizon graphs
+                      div.selectAll(".horizon")
+                          .data(metrics)
+                          .enter().append("div")
+                          .attr("class", "horizon")
+                          .call(context.horizon().extent(extents));
+
+                      div.append("div")
+                          .attr("class", "rule")
+                          .call(context.rule());
+                    });
+                    // On mousemove, reposition the chart values to match the rule.
+                    context.on("focus", function(i) {
+                        d3.selectAll(".value").style("right", i == null ? null : context.size() - i + "px");
+                    });
+
+                }
+                var graphite_cubism = function(metric_name, metric_vals) {
+                    var seconds = 10;
+
+                    // Create cubism context
+                    context = cubism.context()
+                        .serverDelay(seconds * 1000) // allow 10 seconds of collection lag
+                        .step(1 * 60 * 1000)         // 10 seconds per value
+                        .size(1080);          // fetch 1080 values (pixels)
+                    graphite = context.graphite('/graphite/');
+                    // Search graphite for CPU metrics
+                    graphite.find('virt.'+metric_name+'.*.'+metric_vals, function(error, results) { 
+
+                        var metrics = []; // list of metrics
+
+                        $.each(results, function(idx, metric) {
+                            var attr  = metric.split('.').slice(-1);
+                            var alias = metric.split('.')[2] + ' ' + attr;
+                            if(attr == 'tx_bytes' || attr == 'wr_bytes') {
+                                metrics.push(graphite.metric("scale(nonNegativeDerivative("+metric+"),-1)").alias(alias));
+                            }else {
+                                metrics.push(graphite.metric("nonNegativeDerivative("+metric+")").alias(alias));
+                            }
+                        });
+                        // Sort metric using D3
+                        metrics.sort();
+
+                        // Create the graphs and add to #graphs container
+                        d3.select("#graphs").call( function(div) {
+
+                          // An axis at the top
+                          div.append("div")
+                              .attr("class", "axis")
+                              .call(context.axis().orient("top"));
+
+                          // All the horizon graphs
+                          div.selectAll(".horizon")
+                              .data(metrics)
+                              .enter().append("div")
+                              .attr("class", "horizon")
+                              .call(context.horizon()
+                                  .height(30)
+                                  );
+
+                          //div.append("div")
+                          //    .attr("class", "rule")
+                          //    .call(context.rule());
+     
+                        });
+                    });
+
+                    // On mousemove, reposition the chart values to match the rule.
+                    context.on("focus", function(i) {
+                        d3.selectAll(".value").style("right", i == null ? null : context.size() - i + "px");
+                    });
+                }
+                $('body').on('click', '.vm_stats', function(ev) {
+                    var template = Handlebars.compile($('#vm_monitor').html());
+                    $('#content').html(template({title:'CPU'}));
+
+                    graphite_cubism('vm_cputime', 'cputime_percent');
+
+                    return false; 
+                });
+                $('body').on('click', '.vm_net_stats', function(ev) {
+                    var template = Handlebars.compile($('#vm_monitor').html());
+                    $('#content').html(template({title:'Net'}));
+
+                    graphite_cubism('vm_netstats', '*x_bytes');
+
+                    return false; 
+                });
+                $('body').on('click', '.vm_stats_disk', function(ev) {
+                    var template = Handlebars.compile($('#vm_monitor').html());
+                    $('#content').html(template({title:'Disk'}));
+
+                    graphite_cubism('vm_diskstats', '*_bytes');
+
+                    return false; 
                 });
 
                 // Bind drag % drop
@@ -844,7 +1013,6 @@
                 state_update_timer = setInterval('sv.get_all_vms_and_states()', 30000)
 
                 return this;
-
             };
             var sv = SaltVirt();
             window.sv = sv;
