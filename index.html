@@ -11,9 +11,13 @@
         <link href="/static/bootstrap/css/bootstrap.css" rel="stylesheet">
         <link href="/static/fa/css/font-awesome.css" rel="stylesheet">
         <style type="text/css">
+            @import url(//fonts.googleapis.com/css?family=Open+Sans:300,400,400italic,600,600italic);
             body {
                 padding-bottom: 40px;
+                /*
                 font-family: 'Tahoma', sans-serif;
+                */
+                font: 15px/22px 'Open Sans',Arial,Helvetica,sans-serif;
 
             }
             #cuntent {
@@ -26,9 +30,16 @@
                 padding-top: 15px;
 
             }
-            .sidebar-nav {
-                padding: 9px 0;
-                padding-top: 0;
+            .sidebar, .darkwell {
+                background: #333; box-shadow: 0 0 32px rgba(0,0,0,0.2);
+                color: #bbb; -webkit-text-size-adjust:none;
+                border-bottom: 1px solid #333;
+            }
+            .darkwell {
+                padding: 24px 48px 24px 24px; 
+                border-top: 1px solid #444; 
+                border-bottom: 1px solid #222;
+                color: #eee;
             }
             .sidebar-nav.well {
                 border: 0;
@@ -41,6 +52,20 @@
             }
             .running, .icon-play {
                 color: #5bb75b;
+            }
+            .sidebar a {
+                padding: 0 1px;
+                color: #eee; 
+                text-decoration: none;
+            }
+            .sidebar a:hover, .sidebar a:focus, .sidebar a:active {
+                border-color: #ccf;
+                color: #333; 
+                /*
+                text-shadow: 0 0 1px #fff;
+                */
+                text-shadow: 0 0 0px #fff;
+                background: #eee;
             }
             #host-list-container {
                 padding-top: 15px;
@@ -86,20 +111,20 @@
     -->
         <div id="" class="container-fluid">
             <div class="row-fluid">
-                <div class="span2">
-                    <div class="well sidebar-nav">
+                <div class="span2 sidebar">
+                    <div class="sidebar-nav">
                         <div class="box-header"><h2><a href='#' class=""><i class="icon-cogs"></i> Operations</a></h2></div>
                         <ul id="operation-list-container" class="nav nav-list">
-                            <li class=""><a href="#" class="btn vm-create-link"><i class="icon-plus-sign"></i>Create VM</a></li>
-                            <li class=""><a href="#" class="btn vm_stats"><i class="icon-bar-chart"></i> CPU Monitor</a></li>
-                            <li class=""><a href="#" class="btn vm_net_stats"><i class="icon-bar-chart"></i> Net Monitor</a></li>
-                            <li class=""><a href="#" class="btn vm_stats_disk"><i class="icon-bar-chart"></i> Disk Monitor</a></li>
+                            <li class=""><a href="#" class="vm-create-link"><i class="icon-plus-sign"></i> Create VM</a></li>
+                            <li class=""><a href="#" class="vm_stats"><i class="icon-bar-chart"></i> CPU Monitor</a></li>
+                            <li class=""><a href="#" class="vm_net_stats"><i class="icon-bar-chart"></i> Net Monitor</a></li>
+                            <li class=""><a href="#" class="vm_stats_disk"><i class="icon-bar-chart"></i> Disk Monitor</a></li>
                         </ul>
                     </div>
-                    <div class="well sidebar-nav">
+                    <div class="sidebar-nav">
                         <div class="box-header"><h2><a href='#' class="overview-link"><i class="icon-dashboard"></i> Hosts and VMs</a></h2></div>
                         <ul id="host-list-container" class="nav nav-list">
-                            <li class=""><h5>Fetching info ...</h5></li>
+                            <li class=""><h5><i class="icon-spin icon-spinner"></i>Fetching info ...</h5></li>
                         </ul>
                     </div><!--/.well -->
                 </div><!--/span-->
@@ -117,10 +142,7 @@
                             Måten den får console på er litt intrikat for å kunne tilby console til alle stader utan å ha direkte IP-kontakt inn til hypervisor og for å få kryptering.
                             Det vert starta TCP frå hypervisor:VNC til salt:random-port, og så er det proxy frå på salt-serveren til browseren.
                             <br>
-                            T.d:
                             <br>
-                            <pre>
-                            10.2.66.14:5900 <=> 83.242.12.18:6969 <=> 127.0.0.1:6969 <=> 83.242.12.18:7979 <=> Klient-PC (web socket)
                             </pre>
                             </p>
                             <h4>Funksjonar</h4>
@@ -156,7 +178,6 @@
             <footer>
             <p></p>
                 <img class="pull-left" src="/static/saltstack_logo.png">
-                <img class="pull-right"  src="/static/idriftmono.png">
             </footer>
 
         </div>
@@ -168,7 +189,7 @@
         <script src="/static/cubism.v1.min.js"></script>
 
         <script id="vm_monitor" type="text/x-handlebars-template">
-            <div class="well">
+            <div style="" class="well">
                 <h1>Monitor <small>Virtual machine {{title}} usage</small></h1>
                 <div id="graphs"></div>
             </div>
@@ -302,7 +323,7 @@
                     </div>
                 </div>
             </div> 
-            <div id="vnccontainer"><p class="well">Loading console ...</p></div>'
+            <div id="vnccontainer"><p class="well"><i class="icon-spin icon-spinner"></i> Loading console ...</p></div>'
         </script>
 
         <script id="vm_list_template" type="text/x-handlebars-template">
@@ -429,7 +450,7 @@
                 var api_user='saltuser';
                 var api_pass='jiop531';
                 // strip this domain from all hostnames
-                strip_domain = /.idrift.no/g;
+                strip_domain = /.demo.no/g;
                 // Static list of our hypervisors
                 var all_targets  = '*';
                 var token;
@@ -578,7 +599,7 @@
                     });
                 }
                 var get_full_info  = function() {
-                    $('#content').html('<div class="hero-unit"><h1>Loading...</h1></div>');
+                    $('#content').html('<div class="hero-unit"><h1><i class="icon-spin icon-spinner"></i> Loading host and vm info ...</h1></div>');
                     $.post(api_url_base + '/', tcontext({
                         tgt:all_targets,
                         fun:'virt.full_info'
@@ -632,7 +653,7 @@
                     }
                 }
                 var start_wsproxy = function(host, port, vminfo)  {
-                    var proxyhost = 'salt.idrift.no';
+                    var proxyhost = 'salt.demo.no';
                     var port = parseInt(port);
                     var randomnumber=Math.floor(Math.random()*1000)
                     var socatport = port + randomnumber;
@@ -752,7 +773,7 @@
                     var hosts = {
                         hosts: []
                     }
-                    $.each(['fremen.idrift.no', 'harkonnen.idrift.no', 'chani.idrift.no'], function(index, host) {
+                    $.each(['fremen.demo.no', 'harkonnen.demo.no', 'chani.demo.no'], function(index, host) {
                         hosts.hosts.push({host:host, index:index});
                     });
                     console.log('hosts', hosts);
